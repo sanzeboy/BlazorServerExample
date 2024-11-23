@@ -1,0 +1,99 @@
+﻿@page "/address/city"
+@using PopulationPortal.Application.Services.Addresses
+@using PopulationPortal.Application.Services.Addresses.Models
+@inject IAddressService AddressService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h4>@(CityModel.Id == 0 ? "Add New City" : "Edit City")</h4>
+<div class="mb-3">
+    <label for="countrySelectForCity" class="form-label">Country</label>
+    <select name="CountryId" id="CountryId" class="form-select" required @onchange="(e)=>LoadCities(e)">
+        <option value="0">-- Select a Country --</option>
+        @foreach (var country in Countries)
+        {
+            <option value="@country.Id">@country.Name</option>
+        }
+    </select>
+</div>
+<EditForm Model="CityModel" OnValidSubmit="SaveCity" FormName="AddCity">
+    <div class="mb-3">
+        <label for="cityName" class="form-label">City Name</label>
+        <input name="CityModel.Name" id="CityModel.Name" class="form-control" @bind-value="CityModel.Name" required />
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+</EditForm>
+
+@if (Cities != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var city in Cities)
+            {
+                <tr>
+                    <td>@city.Name</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm me-2" @onclick="() => EditCity(city)">Edit</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [SupplyParameterFromForm]
+    private CityDto CityModel { get; set; } = new();
+    private List<CountryDto> Countries = new();
+    private List<CityDto> Cities = new();
+    private int countryId = 0;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        Countries = await AddressService.GetAllCountriesAsync();
+    }
+
+    private async Task LoadCities(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out countryId))
+        {
+            Cities = await AddressService.GetCitiesByCountryIdAsync(countryId);
+        }
+    }
+
+    private async Task SaveCity()
+    {
+        CityModel.CountryId = countryId;
+        if (CityModel.Id == 0)
+        {
+            CityModel.Id = await AddressService.CreateCityAsync(CityModel);
+            Cities.Add(CityModel);
+        }
+        else
+        {
+            await AddressService.UpdateCityAsync(CityModel);
+            var index = Cities.FindIndex(c => c.Id == CityModel.Id);
+            if (index != -1)
+            {
+                Cities[index] = CityModel;
+            }
+        }
+        CityModel = new();
+
+    }
+
+    private async Task EditCity(CityDto city)
+    {
+        CityModel = city;
+    }
+
+
+}

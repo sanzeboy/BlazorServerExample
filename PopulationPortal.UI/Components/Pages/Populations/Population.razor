@@ -1,0 +1,177 @@
+﻿@page "/population"
+@using PopulationPortal.Application.Services.Addresses
+@using PopulationPortal.Application.Services.Addresses.Models
+@using PopulationPortal.Application.Services.Populations
+@using PopulationPortal.Application.Services.Populations.Models.Dtos
+@using PopulationPortal.Domain.Entities.Populations
+@inject IPopulationService PopulationService
+@inject IAddressService AddressService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<h3>Manage Population</h3>
+
+<div class="mb-3">
+    <label for="countrySelect" class="form-label">Select Country</label>
+    <select id="countrySelect" class="form-select" @onchange="OnCountryChange">
+        <option value="0">-- Select a Country --</option>
+        @foreach (var country in Countries)
+        {
+            <option value="@country.Id">@country.Name</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="citySelect" class="form-label">Select City</label>
+    <select id="citySelect" class="form-select" @onchange="OnCityChange" disabled="@(SelectedCountryId == 0)">
+        <option value="0">-- Select a City --</option>
+        @foreach (var city in Cities)
+        {
+            <option value="@city.Id">@city.Name</option>
+        }
+    </select>
+</div>
+<div class="mb-3">
+    <label for="ageGroup" class="form-label">Age Group</label>
+    <select id="ageGroup" class="form-select" @onchange="OnAgeGroupChange">
+        <option value="0">-- Select Age Group --</option>
+        @foreach (var ageGroup in Enum.GetValues(typeof(AgeGroupEnum)))
+        {
+            <option value="@ageGroup">@ageGroup</option>
+        }
+    </select>
+</div>
+<EditForm Model="PopulationDto" OnValidSubmit="SavePopulation" FormName="PopulationForm">
+
+
+    <div class="mb-3">
+        <label for="malePopulation" class="form-label">Male Population</label>
+        <input id="malePopulation" type="number" class="form-control" @bind-value="PopulationDto.Male" required />
+    </div>
+
+    <div class="mb-3">
+        <label for="femalePopulation" class="form-label">Female Population</label>
+        <input id="femalePopulation" type="number" class="form-control" @bind-value="PopulationDto.Female" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary" disabled="@(SelectedCityId == 0 ||SelectedAgeGroup == 0)">Save</button>
+</EditForm>
+
+@if (ShowSaveMessage)
+{
+    <div class="alert alert-@((bool)SaveSuccess ? "success" : "danger") mt-3">
+        @(SaveSuccess.Value ? "Population data saved successfully!" : "Failed to save population data.")
+    </div>
+}
+
+@code {
+    private List<CountryDto> Countries = new();
+    private List<CityDto> Cities = new();
+    [SupplyParameterFromForm]
+    private InsertUpdatePopulationCountDto PopulationDto { get; set; } = new();
+    private int SelectedCountryId;
+    private int SelectedCityId;
+    private AgeGroupEnum SelectedAgeGroup;
+    private bool? SaveSuccess;
+    private bool ShowSaveMessage = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Countries = await AddressService.GetAllCountriesAsync();
+    }
+
+    private async Task OnCountryChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out var countryId))
+        {
+            SelectedCountryId = countryId;
+            PopulationDto.CountryId = countryId;
+            SelectedCityId = 0;
+            SelectedAgeGroup = 0;
+            Cities = await AddressService.GetCitiesByCountryIdAsync(countryId);
+            ClearForm();
+        }
+        else
+        {
+            SelectedCountryId = 0;
+            PopulationDto.CountryId = 0;
+            Cities.Clear();
+        }
+    }
+
+    private async void OnCityChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out var cityId))
+        {
+            SelectedCityId = cityId;
+            PopulationDto.CityId = cityId;
+            SelectedAgeGroup = 0;
+            ClearForm();
+
+        }
+        else
+        {
+            SelectedCityId = 0;
+            PopulationDto.CityId = 0;
+        }
+    }
+
+    private async void OnAgeGroupChange(ChangeEventArgs e)
+    {
+        if (Enum.TryParse(e.Value.ToString(), out AgeGroupEnum agegroupId))
+        {
+            SelectedAgeGroup = agegroupId;
+            PopulationDto.AgeGroup = agegroupId;
+            var populationByAdddress = await PopulationService.GetGenderPopulationAsync(
+            new Application.Services.Populations.Models.Filters.PopulationFilter
+                {
+                    CountryId = SelectedCountryId,
+                    CityId = SelectedCityId,
+                    AgeGroup = SelectedAgeGroup,
+                });
+            PopulationDto.Male = populationByAdddress.Male;
+            PopulationDto.Female = populationByAdddress.Female;
+            StateHasChanged();
+
+        }
+        else
+        {
+            SelectedAgeGroup = 0;
+            PopulationDto.AgeGroup = 0;
+        }
+    }
+
+    private async Task SavePopulation()
+    {
+        try
+        {
+            SaveSuccess = await PopulationService.InsertUpdatePopulationAsync(PopulationDto);
+            if (SaveSuccess.Value)
+            {
+                ClearForm();
+            }
+        }
+        catch (Exception ex)
+        {
+            SaveSuccess = false;
+            Console.WriteLine(ex.Message);
+        }
+        ShowSaveMessage = true;
+        StateHasChanged();
+        await Task.Delay(3000); // Wait for 3 seconds
+        ShowSaveMessage = false;
+        StateHasChanged();
+    }
+
+    public void ClearForm()
+    {
+        PopulationDto.CountryId = SelectedCountryId;
+        PopulationDto.CityId = SelectedCityId;
+        PopulationDto.AgeGroup = SelectedAgeGroup;
+        PopulationDto.Male = 0;
+        PopulationDto.Female = 0;
+        StateHasChanged();
+
+    }
+}

@@ -1,0 +1,57 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+
+            <AuthorizeView>
+                <NotAuthorized>
+                    <NavLink class="nav-link" href="login">
+                        Login
+                    </NavLink>
+                </NotAuthorized>
+                <Authorized>
+                    <NavLink class="nav-link" href="logout">
+                        Logout
+                    </NavLink>
+                </Authorized>
+
+            </AuthorizeView>
+
+
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code
+{
+    private EditContext? editContext;
+
+
+    public void Logout()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+
+    public class LogoutModel
+    {
+        public string Username { get; set; }
+    }
+}

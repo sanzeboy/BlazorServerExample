@@ -1,0 +1,125 @@
+﻿@page "/"
+@using PopulationPortal.Application.Services.Addresses
+@using PopulationPortal.Application.Services.Addresses.Models
+@using PopulationPortal.Application.Services.Populations
+@using PopulationPortal.Application.Services.Populations.Models.Dtos
+@using PopulationPortal.Application.Services.Populations.Models.Filters
+@using PopulationPortal.Domain.Entities.Populations
+@inject IPopulationService PopulationService
+@inject IAddressService AddressService
+@rendermode InteractiveServer
+<h3>Population Count by Age Group</h3>
+
+<div class="mb-3">
+    <label for="country" class="form-label">Country</label>
+    <select id="country" class="form-select" @onchange="OnCountryChanged">
+        <option value="">-- Select Country --</option>
+        @foreach (var country in Countries)
+        {
+            <option value="@country.Id">@country.Name</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="city" class="form-label">City</label>
+    <select id="city" class="form-select" @onchange="OnCityChanged" disabled="@(!SelectedCountryId.HasValue)">
+        <option value="">-- Select City --</option>
+        @foreach (var city in Cities)
+        {
+            <option value="@city.Id">@city.Name</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="gender" class="form-label">Gender</label>
+    <select id="gender" class="form-select" @onchange="OnGenderChanged">
+        <option value="">-- All Genders --</option>
+        <option value="1">Male</option>
+        <option value="2">Female</option>
+    </select>
+</div>
+
+@if (PopulationData != null)
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Age Group</th>
+                <th>Total Population</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Child</td>
+                <td>@PopulationData.Child</td>
+            </tr>
+            <tr>
+                <td>Young</td>
+                <td>@PopulationData.Young</td>
+            </tr>
+            <tr>
+                <td>Old</td>
+                <td>@PopulationData.Old</td>
+            </tr>
+        </tbody>
+    </table>
+}
+else if (IsLoading)
+{
+    <p>Loading population data...</p>
+}
+
+@code {
+    private List<CountryDto> Countries = new();
+    private List<CityDto> Cities = new();
+    private int? SelectedCountryId;
+    private int? SelectedCityId;
+    private GenderEnum? SelectedGender;
+    private AgeGroupPopulationCountDto? PopulationData;
+    private bool IsLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Countries = await AddressService.GetAllCountriesAsync();
+    }
+
+    private async Task OnCountryChanged(ChangeEventArgs e)
+    {
+        SelectedCountryId = int.TryParse(e.Value?.ToString(), out var countryId) ? countryId : null;
+        SelectedCityId = null; // Reset city selection
+        Cities = SelectedCountryId.HasValue
+            ? await AddressService.GetCitiesByCountryIdAsync(SelectedCountryId.Value)
+            : new List<CityDto>();
+        await LoadPopulationData();
+    }
+
+    private async Task OnCityChanged(ChangeEventArgs e)
+    {
+        SelectedCityId = int.TryParse(e.Value?.ToString(), out var cityId) ? cityId : null;
+        await LoadPopulationData();
+    }
+
+    private async Task OnGenderChanged(ChangeEventArgs e)
+    {
+        SelectedGender = Enum.TryParse<GenderEnum>(e.Value?.ToString(), out var gender) ? gender : null;
+        await LoadPopulationData();
+    }
+
+    private async Task LoadPopulationData()
+    {
+        IsLoading = true;
+        PopulationData = null;
+
+        var filter = new PopulationFilter
+            {
+                CountryId = SelectedCountryId,
+                CityId = SelectedCityId,
+                Gender = SelectedGender
+            };
+
+        PopulationData = await PopulationService.GetAgeGroupPopulationAsync(filter);
+        IsLoading = false;
+    }
+}

@@ -1,0 +1,75 @@
+﻿@page "/address/country"
+@inject IAddressService AddressService
+@using PopulationPortal.Application.Services.Addresses
+@using PopulationPortal.Application.Services.Addresses.Models
+
+@rendermode InteractiveServer
+
+
+<EditForm Enhance Model="CountryModel" OnValidSubmit="Save" FormName="CountryForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <InputNumber class="form-control" id="id" @bind-value="CountryModel.Id" hidden/>
+
+    <div class="mb-3">
+        <label for="name" class="form-label">Country</label>
+        <InputText type="text" class="form-control" id="name" @bind-value="CountryModel.Name" />
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+</EditForm>
+
+ @if (countries != null) 
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var country in countries)
+            {
+                <tr>
+                    <td>@country.Id</td>
+                    <td>@country.Name</td>
+                    <td><button class="btn" @onclick="@(() => Edit(country.Id))">Edit</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@code {
+    [SupplyParameterFromForm]
+    private CountryDto CountryModel { get; set; } = new();
+
+    private List<CountryDto>? countries = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        CountryModel ??= new();
+        countries = await AddressService.GetAllCountriesAsync();
+    }
+
+    private async Task Edit(int id)
+    {
+        CountryModel = (await AddressService.GetCountryByIdAsync(id)) ?? new();
+    }
+
+    private async Task Save()
+    {
+        if (CountryModel == null)
+            return;
+        if (CountryModel.Id == 0)
+            await AddressService.CreateCountryAsync(CountryModel);
+        else
+            await AddressService.UpdateCountryAsync(CountryModel);
+
+        CountryModel = new();
+        countries = await AddressService.GetAllCountriesAsync();
+
+    }
+
+}
